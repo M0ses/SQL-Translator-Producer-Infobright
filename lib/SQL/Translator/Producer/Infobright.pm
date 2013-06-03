@@ -88,7 +88,7 @@ Set the fields charater set and collation order.
 use strict;
 use warnings;
 our ( $DEBUG, %used_names );
-our $VERSION = '1.59';
+our $VERSION = '0.000001';
 $DEBUG   = 0 unless defined $DEBUG;
 
 # Maximum length for most identifiers is 64, according to:
