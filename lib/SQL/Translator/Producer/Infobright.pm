@@ -252,11 +252,11 @@ sub preprocess_schema {
 
 sub produce {
     my $translator     = shift;
-    local $DEBUG       = $translator->debug;
+    local $DEBUG       = 1;#$translator->debug;
     local %used_names;
     my $no_comments    = $translator->no_comments;
     my $add_drop_table = $translator->add_drop_table;
-    my $schema         = $translator->schema;
+    my $schema         = $translator->schema; #  !!! ISA SQL::Translator::Schema
     my $show_warnings  = $translator->show_warnings || 0;
     my $producer_args  = $translator->producer_args;
     my $mysql_version  = parse_mysql_version ($producer_args->{mysql_version}, 'perl') || 0;
@@ -281,11 +281,23 @@ sub produce {
     #
     my @table_defs =();
 
-    for my $table ( $schema->get_tables ) {
+
+
+    foreach my $table ( $schema->get_tables ) {
+        debug("PKG: creating table:'".$table->name."');");
         if (
                 $producer_args->{default_mysql_charset}
         ) {
-            $table->options({ 'CHARACTER SET' => $producer_args->{default_mysql_charset} });
+            eval {
+                my $opts = $table->options || [] ;
+                push( @{$opts}, { 'CHARACTER SET' => $producer_args->{default_mysql_charset} } ) ;
+                $table->options($opts);
+                if ( __table_engine_bh($table,$producer_args) ) {
+                    $table->extra->{'mysql_table_type'} = 'BRIGHTHOUSE';
+                }
+            };
+            print "PKG: DIE: $@\n" if ($@);
+        
         }
         push @table_defs, create_table($table,
                                        { add_drop_table    => $add_drop_table,
@@ -425,6 +437,7 @@ sub create_table
     debug("PKG: Looking at table '$table_name'\n");
     debug("PKG: table->options for '$table_name'\n");
     debug("PKG: ".Dumper($table->options));
+    debug("PKG: ".Dumper($options));
 
     #
     # Header.  Should this look like what mysqldump produces?
@@ -500,16 +513,19 @@ sub __table_engine_bh  {
   }
 
   my $in_excludes = grep { /^$table_name$/ } @exclude_maps;
-  debug("DEBUG007: ".$table_name." exists $in_excludes times in \@exclude_maps: @exclude_maps");
+  debug("PKG: ".$table_name." exists $in_excludes times in \@exclude_maps: @exclude_maps");
 
+  debug("PKG: bh_table_engine_regex = '$regex'");
   if (
         ! $in_excludes &&
         $regex && 
         $table_name =~ /$regex/
   ) {
+    debug("PKG: table $table_name is brighthouse");
     return 1;
   }
 
+  debug("PKG: table $table_name is not brighthouse");
   return 0;
 }
 
@@ -544,17 +560,17 @@ sub generate_table_options
 
   if ( __table_engine_bh($table->name,$options) ) {
     $mysql_table_type='BRIGHTHOUSE';
-    $table_type_defined=0;
+    debug("PKG: <".$table->name."> setting mysql_table_type to '$mysql_table_type'");
   }
 
   $create .= " ENGINE=$mysql_table_type"
     if $mysql_table_type && !$table_type_defined;
   my $comments         = $table->comments;
-
   $create .= " DEFAULT CHARACTER SET $charset" if $charset;
   $create .= " COLLATE $collate" if $collate;
   $create .= " UNION=$union" if $union;
   $create .= qq[ comment='$comments'] if $comments;
+debug("create : $create");
   return $create;
 }
 
@@ -893,12 +909,12 @@ sub alter_field
     my $qt = $options->{quote_table_names} || '';
     my $table_name = quote_table_name($to_field->table->name, $qt);
 
-    debug("Alter field in $table_name from: ".$from_field->name . "to: $to_field"); 
     my $out = '';
 
     if ( __table_engine_bh($table_name,$options) ) {
 
         return if ($__already_recreated_bh_tables->{$table_name});
+        debug("PKG: Recreation of table $table_name"); 
         my @ct_out = create_table(
                 $to_field->table,
                 {%{$options},add_drop_table=>1}
@@ -906,6 +922,7 @@ sub alter_field
         $__already_recreated_bh_tables->{$table_name} = 1;
         return @ct_out;
     } else {
+        debug("PGK: Alter field in $table_name from: ".$from_field->name . "to: $to_field"); 
         $out = sprintf('ALTER TABLE %s CHANGE COLUMN %s %s',
                       $table_name,
                       $qf . $from_field->name . $qf,
