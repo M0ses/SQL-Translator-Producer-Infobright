@@ -1083,7 +1083,7 @@ sub batch_alter_table {
         push(@tmp_stmts,$stmt)
     } else {
         push(@alternate_stmts,$stmt)
-    }
+    } 
   }
   @stmts=@tmp_stmts;
 #debug("DEBUG012".$do->Dump(\@stmts));
@@ -1091,13 +1091,15 @@ sub batch_alter_table {
          ? qr/^ALTER TABLE (?:\Q$table_name\E|\Q$renamed_from\E) /
             : qr/^ALTER TABLE \Q$table_name\E /;
 
-  
-  my $first = shift  @stmts;
-  my ($alter_table) = $first =~ /($re)/;
+  my @stmtsR = ();
+  if (@stmts) {
+    my $first = shift  @stmts;
+    my ($alter_table) = $first =~ /($re)/;
 
-  my $padd = " " x length($alter_table);
-
-  return @drop_stmt,@alternate_stmts, join( ",\n", $first, map { s/$re//; $padd . $_ } @stmts);
+    my $padd = " " x length($alter_table);
+    @stmtsR = join( ",\n", $first, map { s/$re//; $padd . $_ } @stmts);
+  }
+  return @drop_stmt,@alternate_stmts, @stmtsR;
 
 }
 
