@@ -515,7 +515,7 @@ sub __table_engine_bh  {
   my $in_excludes = grep { /^$table_name$/ } @exclude_maps;
   debug("PKG: ".$table_name." exists $in_excludes times in \@exclude_maps: @exclude_maps");
 
-  debug("PKG: bh_table_engine_regex = '$regex'");
+  debug("PKG: bh_table_engine_regex = '". ( $regex || '' ) ."'");
   if (
         ! $in_excludes &&
         $regex && 
