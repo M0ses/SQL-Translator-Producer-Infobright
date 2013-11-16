@@ -252,7 +252,7 @@ sub preprocess_schema {
 
 sub produce {
     my $translator     = shift;
-    local $DEBUG       = 1;#$translator->debug;
+    local $DEBUG       = $ENV{SQL_TRANSLATOR_PRODUCER_DEBUG} || 0;
     local %used_names;
     my $no_comments    = $translator->no_comments;
     my $add_drop_table = $translator->add_drop_table;
